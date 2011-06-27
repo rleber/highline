@@ -16,6 +16,7 @@ require "abbrev"
 require "highline/system_extensions"
 require "highline/question"
 require "highline/menu"
+require "highline/styles"
 require "highline/color_scheme"
 require 'pp'
 
@@ -85,77 +86,16 @@ class HighLine
   # Embed in a String to clear all previous ANSI sequences.  This *MUST* be 
   # done before the program exits!
   # 
-  CLEAR      = "\e[0m"
-  # An alias for CLEAR.
-  RESET      = CLEAR
   # Erase the current line of terminal output.
   ERASE_LINE = "\e[K"
   # Erase the character under the cursor.
   ERASE_CHAR = "\e[P"
-  # The start of an ANSI bold sequence.
-  BOLD       = "\e[1m"
-  # The start of an ANSI dark sequence.  (Terminal support uncommon.)
-  DARK       = "\e[2m"
-  # The start of an ANSI underline sequence.
-  UNDERLINE  = "\e[4m"
-  # An alias for UNDERLINE.
-  UNDERSCORE = UNDERLINE
-  # The start of an ANSI blink sequence.  (Terminal support uncommon.)
-  BLINK      = "\e[5m"
-  # The start of an ANSI reverse sequence.
-  REVERSE    = "\e[7m"
-  # The start of an ANSI concealed sequence.  (Terminal support uncommon.)
-  CONCEALED  = "\e[8m"
-  
-  STYLES = %w{CLEAR RESET BOLD DARK UNDERLINE UNDERSCORE BLINK REVERSE CONCEALED}
-
-  # Set the terminal's foreground ANSI color to black.
-  BLACK      = "\e[30m"
-  # Set the terminal's foreground ANSI color to red.
-  RED        = "\e[31m"
-  # Set the terminal's foreground ANSI color to green.
-  GREEN      = "\e[32m"
-  # Set the terminal's foreground ANSI color to yellow.
-  YELLOW     = "\e[33m"
-  # Set the terminal's foreground ANSI color to blue.
-  BLUE       = "\e[34m"
-  # Set the terminal's foreground ANSI color to magenta.
-  MAGENTA    = "\e[35m"
-  # Set the terminal's foreground ANSI color to cyan.
-  CYAN       = "\e[36m"
-  # Set the terminal's foreground ANSI color to white (on Mac OSX Terminal, this is actually gray).
-  WHITE      = "\e[37m"
-  # Alias for WHITE, since WHITE is actually a light gray on Macs
-  GRAY       = WHITE
-  # Set the terminal's foreground ANSI color to none (on Mac OSX Terminal, this is black foreground,
-  # or bright white background). Also used as base for RGB colors, if available
-  NONE       = "\e[38m"
-  
-  BASIC_COLORS = %w{BLACK RED GREEN YELLOW BLUE MAGENTA CYAN WHITE GRAY NONE}
-  
-  colors = BASIC_COLORS.dup
-  BASIC_COLORS.each do |color|
-    bright_color = "BRIGHT_#{color}"
-    colors << bright_color
-    const_set bright_color, const_get(color).sub(/\d+/) {|digits| (digits.to_i + 60).to_s }
-  end
-  COLORS = colors
-  
-  colors.each do |color|
-    const_set "ON_#{color}", const_get(color).sub(/\d+/) {|digits| (digits.to_i + 10).to_s }
-  end
   
   # For RGB colors:
   def self.const_missing(name)
-    if name.to_s =~ /^(ON_)?RGB_([A-F0-9]{6})$/ # RGB color
-      on = $1
-      rgb = $2.scan(/../).map{|part| part.to_i(16)} # Split into RGB parts as integers
-      code = 16 + rgb.inject(0) {|kode, color| kode*6 + (color/256.0*6.0).floor}
-      prefix = on ? 48 : 38
-      "\e[#{prefix};5;#{code}m"
-    else
-      raise NameError, "Bad color or uninitialized constant #{name}"
-    end
+    StyleElement.new(name.to_s.downcase.to_sym).code
+  rescue
+    raise NameError, "Bad color or uninitialized constant #{name}"
   end
 
   #
@@ -348,22 +288,12 @@ class HighLine
   #
   def self.color( string, *colors )
     return string unless self.use_color?
-    color_code(*colors) + string + CLEAR
+    Style(*colors).encode(string)
   end
 
   # In case you just want the color code, without the embedding and the CLEAR
   def self.color_code(*colors)
-    
-    colors = colors.flatten.map do |c|
-      if using_color_scheme? and color_scheme.include? c
-        color_code(color_scheme[c])
-      elsif c.is_a? Symbol
-        const_get(c.to_s.upcase)
-      else
-        c
-      end
-    end
-    colors.flatten.join
+    Style(*colors).code
   end
   
   # Works as an instance method, same as the class method
@@ -376,9 +306,10 @@ class HighLine
     self.class.color(*args)
   end
   
+  # TODO Remove this alias
   # Remove color codes from a string
   def self.uncolor(string)
-    string.gsub(/\e\[\d+(;\d+)*m/, '')
+    Style.uncolor(string)
   end
   
   # Works as an instance method, same as the class method

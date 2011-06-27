@@ -32,21 +32,21 @@ class HighLine
   
   module StringExtensions
     def self.included(base)
-      HighLine::COLORS.each do |color|
+      HighLine::Color.colors.each do |color|
         base.class_eval <<-END
-          def #{color.downcase}
-            color(:#{color.downcase})
+          def #{color}
+            color(:#{color})
           end
         END
         base.class_eval <<-END
-          def on_#{color.downcase}
-            on(:#{color.downcase})
+          def on_#{color}
+            on(:#{color})
           end
         END
-        HighLine::STYLES.each do |style|
+        HighLine.StyleElement.styles.each do |style|
           base.class_eval <<-END
-            def #{style.downcase}
-              color(:#{style.downcase})
+            def #{style}
+              color(:#{style})
             end
           END
         end
@@ -54,7 +54,7 @@ class HighLine
       
       base.class_eval do
         def color(*args)
-          self.class.new(HighLine.color(self, *args))
+          self.class.new(HighLine::Style.new(*args).encode(self))
         end
         alias_method :foreground, :color
         
@@ -63,13 +63,11 @@ class HighLine
         end
 
         def uncolor
-          self.class.new(HighLine.uncolor(self))
+          self.class.new(HighLine::Style.uncolor(self))
         end
         
         def rgb(*colors)
-          color_code = colors.map{|color| color.is_a?(Numeric) ? '%02x'%color : color.to_s}.join
-          raise "Bad RGB color #{colors.inspect}" unless color_code =~ /^[a-fA-F0-9]{6}/
-          color("rgb_#{color_code}".to_sym)
+          HighLine::Color.rgb(*colors).encode(self)
         end
         
         def on_rgb(*colors)
