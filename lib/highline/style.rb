@@ -94,16 +94,62 @@ class HighLine
       string.gsub(/\e\[\d+(;\d+)*m/, '')
     end
     
-    attr_reader :name, :code, :list
-    attr_accessor :rgb, :builtin
+    # TODO Other coordinates, e.g. HSL, HSI, YUV, CIELAB (http://en.wikipedia.org/wiki/Lab_color_space)?
+    # TODO Separate coordinate conversions into a different library/mixin
+    
+    # Convert RGB color encoding to HSV (aka HSB)
+    # For mathematics and explanation, see http://en.wikipedia.org/wiki/HSL_and_HSV
+    # Based on code by unclekyky at http://forum.junowebdesign.com/general-programming/29744-conversion-hsv-hsl-back.html
+    def self.rgb_to_hsv(rgb)
+      rgb = rgb.map{|coord| coord/255.0}
+      max = rgb.max
+      min = rgb.min
+      delta = max - min
+      h = if max == rgb[0]    # max is red
+        h = (60.0*((rgb[1]-rgb[2])/delta)) % 360
+      elsif max == rgb[1]     # max is green
+        h = 60.0*((rgb[2]-rgb[0])/delta) + 120
+      else                    # max is blue
+        h = 60.0*((rgb[0]-rgb[1])/delta) + 240
+      end
+      v = max
+      s = max != 0.0 ? delta/max : 0
+      [h, s*100.0, v*100.0]
+    end
+
+    # Convert HSV color encoding (aka HSB) to RGB
+    # For mathematics and explanation, see http://en.wikipedia.org/wiki/HSL_and_HSV
+    def self.hsv_to_rgb(hsv)
+      h, s, v = hsv
+      s = s/100.0
+      v = v/100.0
+      c = s*v
+      h_prime = (h/60.0).floor
+      x = c*(1-(h_prime%2-1).abs)
+      m = v - c
+      rgb = case h_prime
+      when 0 then [c+m, x,   m  ]
+      when 1 then [x+m, c+m, m  ]
+      when 2 then [m,   c+m, x+m]
+      when 3 then [m,   x+x, c+m]
+      when 4 then [x+m, m,   c+m]
+      else        [c+m, m,   x+m]
+      end
+      rgb.map{|coord| coord*255.0}
+    end
+    
+    attr_reader :name, :code, :list, :rgb
+    attr_accessor :builtin
     
     # Single color/styles have :name, :code, :rgb (possibly), :builtin
     # Compound styles have :name, :list, :builtin
+    # hsv is computed on the fly (and cached)
     def initialize(defn = {})
       @definition = defn
       @name    = defn[:name]
       @code    = defn[:code]
       @rgb     = defn[:rgb]
+      @hsv     = nil
       @list    = defn[:list]
       @builtin = defn[:builtin]
       if @rgb
@@ -148,20 +194,47 @@ class HighLine
       @rgb && @rgb[2]
     end
     
+    def rgb=(rgb_value)
+      @rgb=rgb_value
+      @hsv = nil
+    end
+    
+    def hsv
+      @hsv ||= self.class.rgb_to_hsv(@rgb)
+    end
+    
+    def hsv=(hsv_value)
+      @hsv = hsv_value
+      @rgb = self.class.hsv_to_rgb(@hsv)
+    end
+    
     def variant(new_name, options={})
       raise "Cannot create a variant of a style list (#{inspect})" if @list
       new_code = options[:code] || code
-      if options[:increment]
+      if options[:code_increment]
         raise "Unexpected code in #{inspect}" unless new_code =~ /^(.*?)(\d+)(.*)/
         new_code = $1 + ($2.to_i + options[:increment]).to_s + $3
       end
-      new_rgb = options[:rgb] || @rgb
+      new_rgb = if options[:rgb]
+        options[:rgb]
+      elsif options[:hsv]
+        self.class.hsv_to_rgb(options[:hsv])
+      else 
+        @rgb
+      end
+      if options[:rgb_increment]
+        options[:rgb_increment].each_with_index {|incr, i| new_rgb[i] += incr}
+      elsif options[:hsv_increment]
+        new_hsv = self.class.rgb_to_hsv(new_rgb)
+        options[:hsv_increment].each_with_index {|incr, i| new_hsv[i] += incr}
+        new_rgb = self.class.hsv_to_rgb(new_hsv)
+      end
       new_style = self.class.new(self.to_hash.merge(:name=>new_name, :code=>new_code, :rgb=>new_rgb))
     end
     
     def on
       new_name = ('on_'+@name.to_s).to_sym
-      self.class.list[new_name] ||= variant(new_name, :increment=>10)
+      self.class.list[new_name] ||= variant(new_name, :code_increment=>10)
     end
     
     def bright
@@ -171,7 +244,7 @@ class HighLine
         style
       else
         new_rgb = @rgb == [0,0,0] ? [128, 128, 128] : @rgb.map {|color|  color==0 ? 0 : [color+128,255].min }
-        variant(new_name, :increment=>60, :rgb=>new_rgb)
+        variant(new_name, :code_increment=>60, :rgb=>new_rgb)
       end
     end
   end

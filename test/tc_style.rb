@@ -426,21 +426,21 @@ class TestStyle < Test::Unit::TestCase
     assert_equal 'abracadabra', s1.code # Changed
     assert_equal [1,2,3], s1.rgb # Unchanged
     
-    s2 = @style1.variant(:new_foo2, :increment=>-15)
+    s2 = @style1.variant(:new_foo2, :code_increment=>-15)
     assert_instance_of HighLine::Style, s2
     assert_not_same @style1, s2     # This is a copy
     assert_equal :new_foo2, s2.name # Changed
     assert_equal "\e[84m", s2.code  # 99 (original code) - 15
     assert_equal [1,2,3], s2.rgb    # Unchanged
     
-    s3 = @style1.variant(:new_foo3, :code=>"\e[55m", :increment=>15)
+    s3 = @style1.variant(:new_foo3, :code=>"\e[55m", :code_increment=>15)
     assert_instance_of HighLine::Style, s3
     assert_not_same @style1, s3     # This is a copy
     assert_equal :new_foo3, s3.name # Changed
     assert_equal "\e[70m", s3.code  # 99 (new code) + 15
     assert_equal [1,2,3], s3.rgb    # Unchanged
     
-    s4 = @style1.variant(:new_foo4, :code=>"\e[55m", :increment=>15, :rgb=>"blah")
+    s4 = @style1.variant(:new_foo4, :code=>"\e[55m", :code_increment=>15, :rgb=>"blah")
     assert_instance_of HighLine::Style, s4
     assert_not_same @style1, s4     # This is a copy
     assert_equal :new_foo4, s4.name # Changed

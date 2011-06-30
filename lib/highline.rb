@@ -93,6 +93,8 @@ class HighLine
   # done before the program exits!
   #
   
+  # TODO Move this to style.rb; create HighLine::Style.load_builtin_styles
+  
   ERASE_LINE_STYLE = Style.new(:name=>:erase_line, :builtin=>true, :code=>"\e[K")  # Erase the current line of terminal output
   ERASE_CHAR_STYLE = Style.new(:name=>:erase_char, :builtin=>true, :code=>"\e[P")  # Erase the character under the cursor.
   CLEAR_STYLE      = Style.new(:name=>:clear,      :builtin=>true, :code=>"\e[0m") # Clear color settings 
@@ -110,6 +112,10 @@ class HighLine
   STYLES = %w{CLEAR RESET BOLD DARK UNDERLINE UNDERSCORE BLINK REVERSE CONCEALED}
 
   # These RGB colors are approximate; see http://en.wikipedia.org/wiki/ANSI_escape_code
+  # They are not accurate if color profiles (like Solarized) have been installed
+  # TODO Set builtin color RGB values based on terminal settings
+  # TODO Create builtin absolute RGB colors (e.g. ABS_RED => RGB[255,0,0])
+
   BLACK_STYLE      = Style.new(:name=>:black,      :builtin=>true, :code=>"\e[30m", :rgb=>[  0,  0,  0])
   RED_STYLE        = Style.new(:name=>:red,        :builtin=>true, :code=>"\e[31m", :rgb=>[128,  0,  0])
   GREEN_STYLE      = Style.new(:name=>:green,      :builtin=>true, :code=>"\e[32m", :rgb=>[  0,128,  0])
